@@ -42,52 +42,45 @@
 
 import streamlit as st
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 
-def scrape_job_listings(url):
+def fetch_jobs(api_url):
     try:
-        # Send request and get HTML content
-        response = requests.get(url)
+        # Send request to API endpoint
+        response = requests.get(api_url)
         response.raise_for_status()  # Raise error for non-200 status codes
 
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # Find all job listings on the page
-        jobs = soup.find_all("article", class_="ads__unit")
-
-        job_data = []
-        for job in jobs:
-            title = job.find("h2", class_="ads__unit__content__title").text.strip()
-            description = job.find("p", class_="ads__unit__content__snippet").text.strip()
-            link = "https://www.finn.no" + job.find("a", class_="ads__unit__link")["href"]
-
-            job_data.append({
-                "Title": title,
-                "Description": description,
-                "Link": link
-            })
+        # Parse JSON response
+        job_data = response.json()
 
         return job_data
 
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching job listings: {e}")
+        st.error(f"Error fetching jobs from API: {e}")
         return []
 
 # Streamlit app layout
 st.title("Job Search App")
-st.write("Enter the URL of the Finn.no job search results page:")
+api_url = st.text_input("Enter API URL:")
 
-url = st.text_input("URL:")
-if url:
-    if st.button("Scrape Job Listings"):
-        jobs = scrape_job_listings(url)
-
+if api_url:
+    if st.button("Fetch Jobs"):
+        jobs = fetch_jobs(api_url)
+        
         if jobs:
             st.success(f"Found {len(jobs)} jobs!")
-            st.table(pd.DataFrame(jobs))  # Display jobs in a table format
+            job_list = []
+            
+            for job in jobs:
+                job_list.append({
+                    "Title": job.get("title", "No title"),
+                    "Description": job.get("description", "No description"),
+                    "Link": job.get("link", "No link")
+                })
+
+            st.table(pd.DataFrame(job_list))  # Display jobs in a table format
         else:
-            st.warning("No jobs found or error occurred.")
+            st.warning("No jobs found.")
 
 
 
