@@ -42,52 +42,101 @@
 
 import streamlit as st
 import requests
+from bs4 import BeautifulSoup
 import pandas as pd
 
-def fetch_jobs(api_url):
+def identify_selectors(url):
+    # Initialize empty dictionary to store identified selectors
+    selectors = {}
+
     try:
-        # Send request to API endpoint
-        response = requests.get(api_url)
+        # Send request and get HTML content
+        response = requests.get(url)
         response.raise_for_status()  # Raise error for non-200 status codes
 
-        # Parse JSON response
-        job_data = response.json()
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        # Find job container (div class="ads__unit__content")
+        job_listing_div = soup.find("div", class_="ads__unit__content")
+        if job_listing_div:
+            selectors['job_container'] = "div.ads__unit__content"
+
+            # Find job title (h2 class="ads__unit__content__details__title")
+            job_title_h2 = job_listing_div.find("h2", class_="ads__unit__content__details__title")
+            if job_title_h2:
+                selectors['job_title'] = "h2.ads__unit__content__details__title"
+
+            # Find job description (p class="ads__unit__content__details__description")
+            job_description_p = job_listing_div.find("p", class_="ads__unit__content__details__description")
+            if job_description_p:
+                selectors['job_description'] = "p.ads__unit__content__details__description"
+
+            # Find job link (a href)
+            job_link_a = job_listing_div.find("a", href=True)
+            if job_link_a:
+                selectors['job_link'] = "a[href]"
+
+            return selectors
+
+        else:
+            st.warning("Unable to find job listings container. Please check the HTML structure.")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching URL: {e}")
+        return None
+
+def scrape_job_portal(url, selectors, keywords):
+    try:
+        # Send request and get HTML content
+        response = requests.get(url)
+        response.raise_for_status()  # Raise error for non-200 status codes
+
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        # Find relevant job listings using identified selectors
+        jobs = soup.find_all(selectors.get('job_container', "div.ads__unit__content"))  # Default selector
+
+        # Extract information and store in a list
+        job_data = []
+        for job in jobs:
+            title = job.find(selectors.get('job_title', "h2.ads__unit__content__details__title")).text.strip() if selectors.get('job_title') else ""
+            description = job.find(selectors.get('job_description', "p.ads__unit__content__details__description")).text.strip() if selectors.get('job_description') else ""
+            link = job.find(selectors.get('job_link', "a[href]")["href"]) if selectors.get('job_link') else ""
+
+            # Check if keywords are found in title or description (modify as needed)
+            if any(keyword.lower() in title.lower() or keyword.lower() in description.lower() for keyword in keywords):
+                job_data.append({"Title": title, "Description": description, "Link": link})
 
         return job_data
 
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching jobs from API: {e}")
-        return None  # Return None if there's an error
+        st.error(f"Error fetching URL: {e}")
+        return []
 
 # Streamlit app layout
-st.title("Job Search App")
-api_url = st.text_input("Enter API URL:")
+st.title("Finn.no Job Search App")
+website_url = st.text_input("Enter Finn.no Job Search URL:")
 
-if st.button("Fetch Jobs"):
-    if api_url:
-        jobs = fetch_jobs(api_url)
-        
-        if jobs is not None:
-            if isinstance(jobs, list) and len(jobs) > 0:
-                st.success(f"Found {len(jobs)} jobs!")
-                job_list = []
-                
-                for job in jobs:
-                    job_list.append({
-                        "Title": job.get("title", "No title"),
-                        "Description": job.get("description", "No description"),
-                        "Link": job.get("link", "No link")
-                    })
+if website_url:
+    st.write(f"Fetching selectors for {website_url}...")
+    selectors = identify_selectors(website_url)
 
-                st.table(pd.DataFrame(job_list))  # Display jobs in a table format
+    if selectors:
+        st.write("Identified Selectors:")
+        st.write(selectors)
+
+        keywords = st.text_input("Enter Keywords (comma separated):").split(",")
+
+        if st.button("Search"):
+            if keywords:
+                jobs = scrape_job_portal(website_url, selectors, keywords)
+                if jobs:
+                    st.success(f"Found {len(jobs)} jobs!")
+                    st.table(pd.DataFrame(jobs))  # Display the jobs in a table format
+                else:
+                    st.warning("No jobs found matching your criteria.")
             else:
-                st.warning("No jobs found in the API response.")
-        else:
-            st.warning("Failed to fetch jobs. Please check the API URL.")
+                st.warning("Please enter at least one keyword.")
     else:
-        st.warning("Please enter the API URL.")
-
-
-
-
-
+        st.warning("Unable to identify selectors. Please check the URL and try again.")
