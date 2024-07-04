@@ -57,30 +57,36 @@ def fetch_jobs(api_url):
 
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching jobs from API: {e}")
-        return []
+        return None  # Return None if there's an error
 
 # Streamlit app layout
 st.title("Job Search App")
 api_url = st.text_input("Enter API URL:")
 
-if api_url:
-    if st.button("Fetch Jobs"):
+if st.button("Fetch Jobs"):
+    if api_url:
         jobs = fetch_jobs(api_url)
         
-        if jobs:
-            st.success(f"Found {len(jobs)} jobs!")
-            job_list = []
-            
-            for job in jobs:
-                job_list.append({
-                    "Title": job.get("title", "No title"),
-                    "Description": job.get("description", "No description"),
-                    "Link": job.get("link", "No link")
-                })
+        if jobs is not None:
+            if isinstance(jobs, list) and len(jobs) > 0:
+                st.success(f"Found {len(jobs)} jobs!")
+                job_list = []
+                
+                for job in jobs:
+                    job_list.append({
+                        "Title": job.get("title", "No title"),
+                        "Description": job.get("description", "No description"),
+                        "Link": job.get("link", "No link")
+                    })
 
-            st.table(pd.DataFrame(job_list))  # Display jobs in a table format
+                st.table(pd.DataFrame(job_list))  # Display jobs in a table format
+            else:
+                st.warning("No jobs found in the API response.")
         else:
-            st.warning("No jobs found.")
+            st.warning("Failed to fetch jobs. Please check the API URL.")
+    else:
+        st.warning("Please enter the API URL.")
+
 
 
 
