@@ -12,16 +12,10 @@ def scrape_job_postings(url, query_params):
             # Extract job postings, titles, links, etc.
             # Example:
             job_postings = []
-            if url == "https://example.com":
-                for posting in soup.find_all('div', class_='job-posting'):
-                    title = posting.find('h2').text.strip()
-                    link = posting.find('a')['href']
-                    job_postings.append({'title': title, 'link': link})
-            elif url == "https://anotherexample.com":
-                for posting in soup.find_all('div', class_='post'):
-                    title = posting.find('h3').text.strip()
-                    link = posting.find('a')['href']
-                    job_postings.append({'title': title, 'link': link})
+            for posting in soup.find_all('div', class_='job-posting'):
+                title = posting.find('h2').text.strip()
+                link = posting.find('a')['href']
+                job_postings.append({'title': title, 'link': link})
 
             return job_postings
         else:
@@ -37,10 +31,7 @@ def main():
 
     # Sidebar for user input
     st.sidebar.header("Search Criteria")
-    website = st.sidebar.selectbox(
-        "Select Website",
-        ["https://indeed.no", "https://www.finn.no/job/fulltime/search.html?published=1&q=in+english"]
-    )
+    url = st.sidebar.text_input("Enter website URL")
     keyword = st.sidebar.text_input("Enter keyword (e.g., Python, Data Scientist)")
     location = st.sidebar.text_input("Enter location (e.g., New York, Remote)")
 
@@ -48,21 +39,25 @@ def main():
     if st.sidebar.button("Search"):
         st.subheader(f"Job Postings for '{keyword}' in '{location}'")
 
-        # Define the URL and query parameters for scraping
-        query_params = {
-            'keyword': keyword,
-            'location': location
-        }
+        # Check if URL is provided
+        if url:
+            # Define the URL and query parameters for scraping
+            query_params = {
+                'keyword': keyword,
+                'location': location
+            }
 
-        # Call the scraping function
-        job_postings = scrape_job_postings(website, query_params)
+            # Call the scraping function
+            job_postings = scrape_job_postings(url, query_params)
 
-        # Display job postings
-        if job_postings:
-            for posting in job_postings:
-                st.markdown(f"### [{posting['title']}]({posting['link']})")
+            # Display job postings
+            if job_postings:
+                for posting in job_postings:
+                    st.markdown(f"### [{posting['title']}]({posting['link']})")
+            else:
+                st.warning("No job postings found.")
         else:
-            st.warning("No job postings found.")
+            st.warning("Please enter a website URL.")
 
 if __name__ == "__main__":
     main()
