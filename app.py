@@ -39,7 +39,7 @@ def main():
     st.sidebar.header("Search Criteria")
     website = st.sidebar.selectbox(
         "Select Website",
-        ["https://indeed.no", "https://finn.no"]
+        ["https://indeed.no", "https://www.finn.no/job/fulltime/search.html"]
     )
     keyword = st.sidebar.text_input("Enter keyword (e.g., Python, Data Scientist)")
     location = st.sidebar.text_input("Enter location (e.g., New York, Remote)")
