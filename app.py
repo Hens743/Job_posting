@@ -43,100 +43,61 @@
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
-import pandas as pd
 
-def identify_selectors(url):
-    # Initialize empty dictionary to store identified selectors
-    selectors = {}
 
+def scrape_job_postings(url, query_params):
     try:
-        # Send request and get HTML content
-        response = requests.get(url)
-        response.raise_for_status()  # Raise error for non-200 status codes
-
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # Find job container (div class="ads__unit__content")
-        job_listing_div = soup.find("div", class_="ads__unit__content")
-        if job_listing_div:
-            selectors['job_container'] = "div.ads__unit__content"
-
-            # Find job title (h2 class="ads__unit__content__details__title")
-            job_title_h2 = job_listing_div.find("h2", class_="ads__unit__content__details__title")
-            if job_title_h2:
-                selectors['job_title'] = "h2.ads__unit__content__details__title"
-
-            # Find job description (p class="ads__unit__content__details__description")
-            job_description_p = job_listing_div.find("p", class_="ads__unit__content__details__description")
-            if job_description_p:
-                selectors['job_description'] = "p.ads__unit__content__details__description"
-
-            # Find job link (a href)
-            job_link_a = job_listing_div.find("a", href=True)
-            if job_link_a:
-                selectors['job_link'] = "a[href]"
-
-            return selectors
-
+        response = requests.get(url, params=query_params)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Implement web scraping logic specific to the website structure
+            # Extract job postings, titles, links, etc.
+            # Example:
+            job_postings = []
+            for posting in soup.find_all('div', class_='job-posting'):
+                title = posting.find('h2').text.strip()
+                link = posting.find('a')['href']
+                job_postings.append({'title': title, 'link': link})
+            
+            return job_postings
         else:
-            st.warning("Unable to find job listings container. Please check the HTML structure.")
-            return None
-
+            st.error(f"Failed to retrieve data from {url}. Status code: {response.status_code}")
+            return []
     except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching URL: {e}")
-        return None
-
-def scrape_job_portal(url, selectors, keywords):
-    try:
-        # Send request and get HTML content
-        response = requests.get(url)
-        response.raise_for_status()  # Raise error for non-200 status codes
-
-        soup = BeautifulSoup(response.content, "html.parser")
-
-        # Find relevant job listings using identified selectors
-        jobs = soup.find_all(selectors.get('job_container', "div.ads__unit__content"))  # Default selector
-
-        # Extract information and store in a list
-        job_data = []
-        for job in jobs:
-            title = job.find(selectors.get('job_title', "h2.ads__unit__content__details__title")).text.strip() if selectors.get('job_title') else ""
-            description = job.find(selectors.get('job_description', "p.ads__unit__content__details__description")).text.strip() if selectors.get('job_description') else ""
-            link = job.find(selectors.get('job_link', "a[href]")["href"]) if selectors.get('job_link') else ""
-
-            # Check if keywords are found in title or description (modify as needed)
-            if any(keyword.lower() in title.lower() or keyword.lower() in description.lower() for keyword in keywords):
-                job_data.append({"Title": title, "Description": description, "Link": link})
-
-        return job_data
-
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching URL: {e}")
+        st.error(f"Error: {e}")
         return []
 
-# Streamlit app layout
-st.title("Finn.no Job Search App")
-website_url = st.text_input("Enter Finn.no Job Search URL:")
 
-if website_url:
-    st.write(f"Fetching selectors for {website_url}...")
-    selectors = identify_selectors(website_url)
+def main():
+    st.title("Job Posting Scraper")
 
-    if selectors:
-        st.write("Identified Selectors:")
-        st.write(selectors)
+    # Sidebar for user input
+    st.sidebar.header("Search Criteria")
+    keyword = st.sidebar.text_input("Enter keyword (e.g., Python, Data Scientist)")
+    location = st.sidebar.text_input("Enter location (e.g., New York, Remote)")
 
-        keywords = st.text_input("Enter Keywords (comma separated):").split(",")
+    # Button to trigger scraping
+    if st.sidebar.button("Search"):
+        st.subheader(f"Job Postings for '{keyword}' in '{location}'")
 
-        if st.button("Search"):
-            if keywords:
-                jobs = scrape_job_portal(website_url, selectors, keywords)
-                if jobs:
-                    st.success(f"Found {len(jobs)} jobs!")
-                    st.table(pd.DataFrame(jobs))  # Display the jobs in a table format
-                else:
-                    st.warning("No jobs found matching your criteria.")
-            else:
-                st.warning("Please enter at least one keyword.")
-    else:
-        st.warning("Unable to identify selectors. Please check the URL and try again.")
+        # Define the URL and query parameters for scraping
+        # Example URL and query_params:
+        base_url = "https://example.com/jobs"
+        query_params = {
+            'keyword': keyword,
+            'location': location
+        }
+
+        # Call the scraping function
+        job_postings = scrape_job_postings(base_url, query_params)
+
+        # Display job postings
+        if job_postings:
+            for posting in job_postings:
+                st.markdown(f"### [{posting['title']}]({posting['link']})")
+        else:
+            st.warning("No job postings found.")
+
+if __name__ == "__main__":
+    main()
+
