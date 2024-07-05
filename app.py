@@ -61,26 +61,27 @@
 
 # if __name__ == "__main__":
 #     main()
-
 import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 
 
-def scrape_job_postings(url, query_params):
+def scrape_content(url, keyword):
     try:
-        response = requests.get(url, params=query_params)
+        response = requests.get(url)
         if response.status_code == 200:
             soup = BeautifulSoup(response.content, 'html.parser')
             
             # Implement web scraping logic specific to the website structure
-            job_postings = []
-            for posting in soup.find_all('div', class_='job-posting'):
-                title = posting.find('h2').text.strip()
-                link = posting.find('a')['href']
-                job_postings.append({'title': title, 'link': link})
+            content_list = []
+            # Example: Look for relevant content based on the keyword
+            for item in soup.find_all('div', class_='item-class'):  # Replace with actual tag/class from the target website
+                # Example: Extract relevant details like title and link
+                title = item.find('h2').text.strip()
+                link = item.find('a')['href']
+                content_list.append({'title': title, 'link': link})
 
-            return job_postings
+            return content_list
         else:
             st.error(f"Failed to retrieve data from {url}. Status code: {response.status_code}")
             return []
@@ -90,35 +91,28 @@ def scrape_job_postings(url, query_params):
 
 
 def main():
-    st.title("Job Posting Scraper")
+    st.title("Content Scraper")
 
     # Sidebar for user input
     st.sidebar.header("Search Criteria")
     url = st.sidebar.text_input("Enter website URL")
-    keyword = st.sidebar.text_input("Enter keyword (e.g., Python, Data Scientist)")
-    location = st.sidebar.text_input("Enter location (e.g., New York, Remote)")
+    keyword = st.sidebar.text_input("Enter keyword (e.g., news, articles)")
 
     # Button to trigger scraping
     if st.sidebar.button("Search"):
-        st.subheader(f"Job Postings for '{keyword}' in '{location}'")
+        st.subheader(f"Content for '{keyword}'")
 
         # Check if URL is provided
         if url:
-            # Define the URL and query parameters for scraping
-            query_params = {
-                'keyword': keyword,
-                'location': location
-            }
-
             # Call the scraping function
-            job_postings = scrape_job_postings(url, query_params)
+            content_list = scrape_content(url, keyword)
 
-            # Display job postings
-            if job_postings:
-                for posting in job_postings:
-                    st.markdown(f"### [{posting['title']}]({posting['link']})")
+            # Display content
+            if content_list:
+                for content in content_list:
+                    st.markdown(f"### [{content['title']}]({content['link']})")
             else:
-                st.warning("No job postings found.")
+                st.warning("No content found.")
         else:
             st.warning("Please enter a website URL.")
 
